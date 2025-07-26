@@ -1,0 +1,1794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FloodGuard | Advanced Prediction System</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/leaflet.css">
+    <style>
+        :root {
+            --primary: #0a4b78;
+            --secondary: #1a6ea0;
+            --accent: #29b6f6;
+            --danger: #f44336;
+            --warning: #ff9800;
+            --success: #4caf50;
+            --dark: #0d2b3e;
+            --light: #e3f2fd;
+            --gray: #607d8b;
+            --card-bg: rgba(255, 255, 255, 0.85);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #0d2b3e, #1a3b52, #0a4b78);
+            color: #fff;
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+        
+        /* Background animation */
+        body::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M0,0 L100,0 L100,100 L0,100 Z" fill="none" stroke="rgba(41, 182, 246, 0.1)" stroke-width="0.5"/></svg>');
+            background-size: 20px 20px;
+            opacity: 0.3;
+            z-index: -1;
+        }
+        
+        .water-drops {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+        }
+        
+        .water-drop {
+            position: absolute;
+            width: 4px;
+            height: 20px;
+            background: rgba(41, 182, 246, 0.6);
+            border-radius: 50%;
+            bottom: 100%;
+            animation: drop 4s linear infinite;
+        }
+        
+        @keyframes drop {
+            0% {
+                transform: translateY(0) scaleY(1);
+                opacity: 1;
+            }
+            80% {
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(100vh) scaleY(0);
+                opacity: 0;
+            }
+        }
+        
+        /* Cloud animation */
+        .clouds {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 30%;
+            pointer-events: none;
+            z-index: -1;
+            overflow: hidden;
+        }
+        
+        .cloud {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+            filter: blur(15px);
+            opacity: 0.7;
+            animation: float linear infinite;
+        }
+        
+        @keyframes float {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100vw); }
+        }
+        
+        /* Flood wave animation */
+        .flood-wave {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 20px;
+            background: linear-gradient(to right, transparent, var(--accent), transparent);
+            animation: wave 8s linear infinite;
+            opacity: 0.5;
+            z-index: -1;
+        }
+        
+        .flood-wave:nth-child(2) {
+            animation-delay: -4s;
+            height: 30px;
+            bottom: 10px;
+            opacity: 0.4;
+        }
+        
+        @keyframes wave {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 30px;
+            position: relative;
+            z-index: 10;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .logo-icon {
+            font-size: 2.5rem;
+            color: var(--accent);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        
+        .logo h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(to right, var(--accent), #b3e5fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: textGlow 3s infinite alternate;
+        }
+        
+        @keyframes textGlow {
+            0% { text-shadow: 0 0 5px rgba(41, 182, 246, 0.5); }
+            100% { text-shadow: 0 0 20px rgba(41, 182, 246, 0.8); }
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 25px;
+        }
+        
+        .nav-links a {
+            color: #fff;
+            text-decoration: none;
+            font-weight: 500;
+            padding: 8px 15px;
+            border-radius: 20px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .nav-links a:hover, .nav-links a.active {
+            background: rgba(41, 182, 246, 0.2);
+        }
+        
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: var(--accent);
+            transform: scaleX(0);
+            transform-origin: right;
+            transition: transform 0.3s ease;
+        }
+        
+        .nav-links a:hover::after, .nav-links a.active::after {
+            transform: scaleX(1);
+            transform-origin: left;
+        }
+        
+        .user-actions {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .btn {
+            padding: 10px 25px;
+            border-radius: 30px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            z-index: 1;
+        }
+        
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+            z-index: -1;
+        }
+        
+        .btn:hover::before {
+            transform: translateX(0);
+        }
+        
+        .btn-primary {
+            background: var(--accent);
+            color: var(--dark);
+        }
+        
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--accent);
+            color: var(--accent);
+        }
+        
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .dashboard-title {
+            margin-bottom: 30px;
+            text-align: center;
+            animation: fadeInUp 1s ease;
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .dashboard-title h2 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+        
+        .dashboard-title p {
+            color: #b3e5fc;
+            max-width: 700px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+        
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+        
+        .card {
+            background: var(--card-bg);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            color: var(--dark);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            animation: cardAppear 0.6s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        @keyframes cardAppear {
+            0% {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, rgba(41, 182, 246, 0.1) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+        
+        .card:hover::before {
+            opacity: 1;
+        }
+        
+        .card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        
+        .card-header h3 {
+            font-size: 1.3rem;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .card-header i {
+            font-size: 1.5rem;
+            color: var(--accent);
+        }
+        
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin: 10px 0;
+            color: var(--primary);
+        }
+        
+        .stat-label {
+            color: var(--gray);
+            font-size: 0.9rem;
+        }
+        
+        .progress-bar {
+            height: 10px;
+            background: #e0e0e0;
+            border-radius: 5px;
+            margin: 15px 0;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .progress {
+            height: 100%;
+            border-radius: 5px;
+            position: relative;
+        }
+        
+        /* Animated progress bar */
+        .progress::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, 
+                transparent, 
+                rgba(255, 255, 255, 0.4), 
+                transparent);
+            animation: progressShine 2s infinite;
+        }
+        
+        @keyframes progressShine {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+        
+        .alert-card {
+            grid-column: span 2;
+            background: linear-gradient(135deg, #1a237e, #0d47a1);
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .alert-card::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M0,0 L100,0 L100,100 L0,100 Z" fill="none" stroke="rgba(255, 255, 255, 0.1)" stroke-width="0.5"/></svg>');
+            background-size: 20px 20px;
+            opacity: 0.3;
+        }
+        
+        .alert-indicator {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            background: rgba(244, 67, 54, 0.9);
+            border-radius: 10px;
+            margin-top: 15px;
+            animation: alert-pulse 1.5s infinite;
+        }
+        
+        @keyframes alert-pulse {
+            0% { 
+                box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.7);
+                transform: scale(1);
+            }
+            70% { 
+                box-shadow: 0 0 0 15px rgba(244, 67, 54, 0);
+                transform: scale(1.02);
+            }
+            100% { 
+                box-shadow: 0 0 0 0 rgba(244, 67, 54, 0);
+                transform: scale(1);
+            }
+        }
+        
+        .alert-content {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .alert-title {
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+        
+        .alert-desc {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        
+        .chart-container {
+            height: 250px;
+            margin-top: 20px;
+        }
+        
+        .map-container {
+            height: 400px;
+            background: linear-gradient(135deg, #1a3b52, #0a4b78);
+            border-radius: 10px;
+            position: relative;
+            overflow: hidden;
+            margin: 20px 0;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        #pakistanMap {
+            width: 100%;
+            height: 100%;
+            border-radius: 10px;
+        }
+        
+        .map-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M0,0 L100,0 L100,100 L0,100 Z" fill="none" stroke="rgba(255, 255, 255, 0.1)" stroke-width="0.8"/></svg>');
+            background-size: 20px 20px;
+            pointer-events: none;
+        }
+        
+        .risk-marker {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            animation: marker-pulse 2s infinite;
+        }
+        
+        @keyframes marker-pulse {
+            0% { transform: translate(-50%, -50%) scale(1); opacity: 0.8; }
+            70% { transform: translate(-50%, -50%) scale(2); opacity: 0; }
+            100% { transform: translate(-50%, -50%) scale(2.5); opacity: 0; }
+        }
+        
+        .prediction-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-top: 40px;
+        }
+        
+        .prediction-card {
+            background: var(--card-bg);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            color: var(--dark);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .prediction-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 5px;
+            background: var(--accent);
+            transform: translateY(-100%);
+            animation: slideIn 1s forwards;
+        }
+        
+        @keyframes slideIn {
+            to { transform: translateY(0); }
+        }
+        
+        .prediction-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .prediction-header h3 {
+            font-size: 1.4rem;
+            color: var(--primary);
+        }
+        
+        .prediction-content {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .prediction-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.03);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .prediction-item:hover {
+            transform: translateX(5px);
+            background: rgba(41, 182, 246, 0.1);
+        }
+        
+        .prediction-item .time {
+            font-weight: 600;
+        }
+        
+        .prediction-item .status {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        
+        .status-low {
+            background: rgba(76, 175, 80, 0.2);
+            color: var(--success);
+        }
+        
+        .status-medium {
+            background: rgba(255, 152, 0, 0.2);
+            color: var(--warning);
+        }
+        
+        .status-high {
+            background: rgba(244, 67, 54, 0.2);
+            color: var(--danger);
+        }
+        
+        .data-flow {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            margin: 40px 0;
+            padding: 30px;
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 15px;
+            position: relative;
+        }
+        
+        .data-node {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            width: 150px;
+            padding: 20px;
+            background: var(--card-bg);
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            z-index: 2;
+            transition: all 0.3s ease;
+            animation: float 6s ease-in-out infinite;
+        }
+        
+        .data-node:nth-child(2) { animation-delay: 0.5s; }
+        .data-node:nth-child(3) { animation-delay: 1s; }
+        .data-node:nth-child(4) { animation-delay: 1.5s; }
+        .data-node:nth-child(5) { animation-delay: 2s; }
+        
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-15px); }
+            100% { transform: translateY(0px); }
+        }
+        
+        .data-node i {
+            font-size: 2rem;
+            color: var(--accent);
+        }
+        
+        .data-node h4 {
+            color: var(--primary);
+            text-align: center;
+        }
+        
+        .data-connector {
+            position: absolute;
+            height: 4px;
+            background: rgba(41, 182, 246, 0.5);
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 1;
+        }
+        
+        .arrow {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--accent);
+            font-size: 1.5rem;
+            z-index: 3;
+            animation: arrow-move 1.5s infinite;
+        }
+        
+        @keyframes arrow-move {
+            0% { opacity: 0; transform: translateY(-50%) translateX(-10px); }
+            50% { opacity: 1; }
+            100% { opacity: 0; transform: translateY(-50%) translateX(10px); }
+        }
+        
+        footer {
+            text-align: center;
+            padding: 30px 0;
+            margin-top: 50px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            color: #b3e5fc;
+        }
+        
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 15px 0;
+        }
+        
+        .footer-links a {
+            color: #b3e5fc;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+        
+        .footer-links a:hover {
+            color: var(--accent);
+            text-shadow: 0 0 10px rgba(41, 182, 246, 0.7);
+        }
+        
+        .notification-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: var(--danger);
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 0.7rem;
+            font-weight: bold;
+            animation: pulse 1.5s infinite;
+        }
+        
+        .btn-icon {
+            position: relative;
+            padding: 10px;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .model-visualization {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        
+        .model-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .model-card:hover {
+            background: rgba(41, 182, 246, 0.2);
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+        
+        .model-card i {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            color: var(--accent);
+        }
+        
+        .model-card h4 {
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+        }
+        
+        .model-card p {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+        
+        .page {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        .page.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .section-title {
+            font-size: 1.8rem;
+            margin: 30px 0 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: fadeInUp 0.8s ease;
+        }
+        
+        .historical-chart {
+            background: var(--card-bg);
+            border-radius: 15px;
+            padding: 25px;
+            margin: 30px 0;
+            color: var(--dark);
+        }
+        
+        .sensor-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        
+        .sensor-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .sensor-card:hover {
+            background: rgba(41, 182, 246, 0.2);
+            transform: scale(1.05);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+        
+        .sensor-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
+        /* Cloudburst animation */
+        .cloudburst-container {
+            position: relative;
+            height: 100px;
+            overflow: hidden;
+            margin: 20px 0;
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.2);
+        }
+        
+        .cloudburst {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .cloudburst-drop {
+            position: absolute;
+            width: 3px;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 50%;
+            animation: cloudburstDrop 0.5s linear infinite;
+        }
+        
+        @keyframes cloudburstDrop {
+            0% {
+                transform: translateY(-20px);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(100px);
+                opacity: 0;
+            }
+        }
+        
+        /* Flood animation */
+        .flood-animation {
+            position: relative;
+            height: 100px;
+            overflow: hidden;
+            margin: 20px 0;
+            border-radius: 10px;
+            background: linear-gradient(to bottom, #0d2b3e, #1a3b52);
+        }
+        
+        .water-level {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 30%;
+            background: rgba(41, 182, 246, 0.5);
+            animation: waterRise 3s infinite alternate;
+        }
+        
+        @keyframes waterRise {
+            0% { height: 30%; }
+            100% { height: 80%; }
+        }
+        
+        .water-wave {
+            position: absolute;
+            top: -10px;
+            left: 0;
+            width: 100%;
+            height: 20px;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 20" preserveAspectRatio="none"><path d="M0,10 C20,15 40,5 60,10 C80,15 100,5 100,10 L100,20 L0,20 Z" fill="rgba(41, 182, 246, 0.8)"/></svg>');
+            background-size: 100% 100%;
+            animation: waveMove 3s linear infinite;
+        }
+        
+        @keyframes waveMove {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-100%); }
+        }
+        
+        /* Cloudburst Explosion Animation */
+        .cloudburst-explosion {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 1s ease;
+        }
+        
+        .explosion-container {
+            position: relative;
+            width: 300px;
+            height: 300px;
+        }
+        
+        .gathering-cloud {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 50%;
+            filter: blur(20px);
+            opacity: 0;
+        }
+        
+        .explosion {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            opacity: 0;
+        }
+        
+        .water-drop-explosion {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: #29b6f6;
+            border-radius: 50%;
+            opacity: 0;
+        }
+        
+        .warning-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 2rem;
+            font-weight: bold;
+            text-align: center;
+            opacity: 0;
+            text-shadow: 0 0 10px rgba(255, 0, 0, 0.8);
+            width: 100%;
+        }
+        
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .alert-card {
+                grid-column: 1;
+            }
+            
+            .prediction-section {
+                grid-template-columns: 1fr;
+            }
+            
+            .data-flow {
+                flex-wrap: wrap;
+            }
+            
+            .nav-links {
+                display: none;
+            }
+            
+            .logo h1 {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Cloudburst explosion animation -->
+    <div class="cloudburst-explosion" id="cloudburstExplosion">
+        <div class="explosion-container">
+            <div class="gathering-cloud" id="gatheringCloud"></div>
+            <div class="explosion" id="explosion"></div>
+            <div class="warning-text" id="warningText">CLOUDBURST WARNING!</div>
+        </div>
+    </div>
+    
+    <!-- Animated water drops -->
+    <div class="water-drops" id="waterDrops"></div>
+    
+    <!-- Cloud animation -->
+    <div class="clouds" id="clouds"></div>
+    
+    <!-- Flood waves -->
+    <div class="flood-wave"></div>
+    <div class="flood-wave"></div>
+    
+    <div class="container">
+        <header>
+            <div class="logo">
+                <i class="fas fa-water logo-icon"></i>
+                <h1>FloodGuard</h1>
+            </div>
+            <nav class="nav-links">
+                <a href="#" class="nav-btn active" data-page="dashboard">Dashboard</a>
+                <a href="#" class="nav-btn" data-page="map">Risk Map</a>
+                <a href="#" class="nav-btn" data-page="predictions">Predictions</a>
+                <a href="#" class="nav-btn" data-page="alerts">Alerts</a>
+                <a href="#" class="nav-btn" data-page="models">AI Models</a>
+            </nav>
+            <div class="user-actions">
+                <button class="btn btn-outline btn-icon">
+                    <i class="fas fa-bell"></i>
+                    <span class="notification-badge">3</span>
+                </button>
+                <button class="btn btn-outline btn-icon">
+                    <i class="fas fa-cog"></i>
+                </button>
+                <button class="btn btn-primary"><i class="fas fa-user"></i> Admin</button>
+            </div>
+        </header>
+        
+        <!-- Dashboard Page -->
+        <div class="page active" id="dashboard">
+            <div class="dashboard-title">
+                <h2>Flood & Cloudburst Prediction System</h2>
+                <p>Advanced AI-powered flood and cloudburst prediction for Northern Pakistan using real-time sensor data, satellite imagery, and meteorological patterns</p>
+            </div>
+            
+            <div class="dashboard-grid">
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-cloud-rain"></i> Rainfall Intensity</h3>
+                        <span class="status-high">High</span>
+                    </div>
+                    <div class="stat-value">42.8 mm</div>
+                    <div class="stat-label">Last 24 hours</div>
+                    <div class="progress-bar">
+                        <div class="progress" style="width: 85%; background: var(--danger);"></div>
+                    </div>
+                    <div class="stat-label">Threshold: 30 mm</div>
+                    
+                    <!-- Cloudburst Animation -->
+                    <div class="cloudburst-container">
+                        <div class="cloudburst" id="cloudburst1"></div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-river"></i> River Level</h3>
+                        <span class="status-medium">Medium</span>
+                    </div>
+                    <div class="stat-value">3.2 m</div>
+                    <div class="stat-label">Current level</div>
+                    <div class="progress-bar">
+                        <div class="progress" style="width: 65%; background: var(--warning);"></div>
+                    </div>
+                    <div class="stat-label">Flood level: 4.0 m</div>
+                    
+                    <!-- Flood Animation -->
+                    <div class="flood-animation">
+                        <div class="water-level"></div>
+                        <div class="water-wave"></div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-wind"></i> Cloudburst Probability</h3>
+                        <span class="status-high">High</span>
+                    </div>
+                    <div class="stat-value">78%</div>
+                    <div class="stat-label">Next 6 hours</div>
+                    <div class="progress-bar">
+                        <div class="progress" style="width: 78%; background: var(--danger);"></div>
+                    </div>
+                    <div class="stat-label">High risk threshold: 60%</div>
+                    
+                    <!-- Cloudburst Animation -->
+                    <div class="cloudburst-container">
+                        <div class="cloudburst" id="cloudburst2"></div>
+                    </div>
+                </div>
+                
+                <div class="card alert-card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-exclamation-triangle"></i> Alert System</h3>
+                        <span>Critical</span>
+                    </div>
+                    <p>Immediate action required in the following areas:</p>
+                    
+                    <div class="alert-indicator">
+                        <i class="fas fa-bell fa-2x"></i>
+                        <div class="alert-content">
+                            <div class="alert-title">FLOOD WARNING: Level 3</div>
+                            <div class="alert-desc">Swat River expected to overflow in Kalam Valley within 4 hours</div>
+                        </div>
+                    </div>
+                    
+                    <div class="map-container">
+                        <div id="dashboardMap"></div>
+                        <div class="map-overlay"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="prediction-section">
+                <div class="prediction-card">
+                    <div class="prediction-header">
+                        <h3>Flood Prediction Timeline</h3>
+                        <i class="fas fa-history"></i>
+                    </div>
+                    <div class="prediction-content">
+                        <div class="prediction-item">
+                            <div class="time">Now</div>
+                            <div class="status status-medium">Medium Risk</div>
+                        </div>
+                        <div class="prediction-item">
+                            <div class="time">+2 hours</div>
+                            <div class="status status-high">High Risk</div>
+                        </div>
+                        <div class="prediction-item">
+                            <div class="time">+4 hours</div>
+                            <div class="status status-high">Critical Risk</div>
+                        </div>
+                        <div class="prediction-item">
+                            <div class="time">+6 hours</div>
+                            <div class="status status-medium">Moderate Risk</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="prediction-card">
+                    <div class="prediction-header">
+                        <h3>Cloudburst Forecast</h3>
+                        <i class="fas fa-cloud-showers-heavy"></i>
+                    </div>
+                    <div class="prediction-content">
+                        <div class="prediction-item">
+                            <div class="time">0-1 hours</div>
+                            <div class="status status-high">87% probability</div>
+                        </div>
+                        <div class="prediction-item">
+                            <div class="time">1-3 hours</div>
+                            <div class="status status-high">92% probability</div>
+                        </div>
+                        <div class="prediction-item">
+                            <div class="time">3-6 hours</div>
+                            <div class="status status-medium">65% probability</div>
+                        </div>
+                        <div class="prediction-item">
+                            <div class="time">6-12 hours</div>
+                            <div class="status status-low">28% probability</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="data-flow">
+                <div class="data-node">
+                    <i class="fas fa-satellite"></i>
+                    <h4>Satellite Data</h4>
+                </div>
+                
+                <div class="arrow">➔</div>
+                
+                <div class="data-node">
+                    <i class="fas fa-sensor"></i>
+                    <h4>IoT Sensors</h4>
+                </div>
+                
+                <div class="arrow">➔</div>
+                
+                <div class="data-node">
+                    <i class="fas fa-cloud"></i>
+                    <h4>Weather API</h4>
+                </div>
+                
+                <div class="arrow">➔</div>
+                
+                <div class="data-node">
+                    <i class="fas fa-brain"></i>
+                    <h4>AI Prediction Model</h4>
+                </div>
+                
+                <div class="arrow">➔</div>
+                
+                <div class="data-node">
+                    <i class="fas fa-map-marked-alt"></i>
+                    <h4>Risk Visualization</h4>
+                </div>
+                
+                <!-- Connectors -->
+                <div class="data-connector" style="left: 150px; width: calc(100% - 300px);"></div>
+            </div>
+        </div>
+        
+        <!-- Risk Map Page -->
+        <div class="page" id="map">
+            <h2 class="section-title"><i class="fas fa-map-marked-alt"></i> Pakistan Flood Risk Map</h2>
+            
+            <div class="map-container">
+                <div id="pakistanMap"></div>
+                <div class="map-overlay"></div>
+            </div>
+            
+            <div class="dashboard-grid">
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-mountain"></i> Northern Areas</h3>
+                        <span class="status-high">Critical</span>
+                    </div>
+                    <div class="stat-value">5 Regions</div>
+                    <div class="stat-label">At high risk</div>
+                    <ul style="margin-top: 15px; padding-left: 20px;">
+                        <li>Kalam Valley</li>
+                        <li>Hunza Valley</li>
+                        <li>Naran Valley</li>
+                        <li>Neelum Valley</li>
+                        <li>Chitral District</li>
+                    </ul>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-exclamation-circle"></i> Landslide Risk</h3>
+                        <span class="status-high">High</span>
+                    </div>
+                    <div class="stat-value">87%</div>
+                    <div class="stat-label">Probability in next 24h</div>
+                    <div class="progress-bar">
+                        <div class="progress" style="width: 87%; background: var(--danger);"></div>
+                    </div>
+                    <div class="stat-label">High risk threshold: 60%</div>
+                    
+                    <!-- Cloudburst Animation -->
+                    <div class="cloudburst-container">
+                        <div class="cloudburst" id="cloudburst3"></div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-house-flood-water"></i> Affected Areas</h3>
+                        <span>Critical</span>
+                    </div>
+                    <div class="stat-value">42 Villages</div>
+                    <div class="stat-label">In danger zones</div>
+                    <div class="progress-bar">
+                        <div class="progress" style="width: 72%; background: var(--danger);"></div>
+                    </div>
+                    <div class="stat-label">Evacuation in progress</div>
+                    
+                    <!-- Flood Animation -->
+                    <div class="flood-animation">
+                        <div class="water-level"></div>
+                        <div class="water-wave"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- AI Models Page -->
+        <div class="page" id="models">
+            <h2 class="section-title"><i class="fas fa-brain"></i> Prediction Models</h2>
+            <p>Our system uses multiple AI models to provide accurate flood predictions</p>
+            
+            <div class="model-visualization">
+                <div class="model-card">
+                    <i class="fas fa-water"></i>
+                    <h4>Hydrological Model</h4>
+                    <p>Analyzes river flow, water levels, and basin characteristics</p>
+                </div>
+                
+                <div class="model-card">
+                    <i class="fas fa-cloud"></i>
+                    <h4>Meteorological Model</h4>
+                    <p>Predicts rainfall patterns and cloudburst probability</p>
+                </div>
+                
+                <div class="model-card">
+                    <i class="fas fa-mountain"></i>
+                    <h4>Topographical Model</h4>
+                    <p>Evaluates terrain and land elevation for flood path prediction</p>
+                </div>
+                
+                <div class="model-card">
+                    <i class="fas fa-satellite"></i>
+                    <h4>Satellite Imagery Analysis</h4>
+                    <p>Uses remote sensing data for real-time monitoring</p>
+                </div>
+            </div>
+            
+            <h2 class="section-title"><i class="fas fa-chart-line"></i> Historical Data Analysis</h2>
+            
+            <div class="historical-chart">
+                <canvas id="historyChart"></canvas>
+            </div>
+            
+            <div class="sensor-grid">
+                <div class="sensor-card">
+                    <i class="fas fa-thermometer-half"></i>
+                    <h4>Temperature</h4>
+                    <div class="sensor-value">24.5°C</div>
+                    <div class="stat-label">Gilgit Station</div>
+                </div>
+                
+                <div class="sensor-card">
+                    <i class="fas fa-tint"></i>
+                    <h4>Humidity</h4>
+                    <div class="sensor-value">78%</div>
+                    <div class="stat-label">Kalam Station</div>
+                </div>
+                
+                <div class="sensor-card">
+                    <i class="fas fa-wind"></i>
+                    <h4>Wind Speed</h4>
+                    <div class="sensor-value">12 km/h</div>
+                    <div class="stat-label">Naran Station</div>
+                </div>
+                
+                <div class="sensor-card">
+                    <i class="fas fa-cloud-rain"></i>
+                    <h4>Rainfall (24h)</h4>
+                    <div class="sensor-value">42mm</div>
+                    <div class="stat-label">Chitral Station</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <footer>
+        <p>FloodGuard Prediction System v4.0</p>
+        <div class="footer-links">
+            <a href="#">Privacy Policy</a>
+            <a href="#">Terms of Service</a>
+            <a href="#">Contact</a>
+            <a href="#">Documentation</a>
+        </div>
+        <p>© 2023 FloodGuard Technologies. All rights reserved.</p>
+    </footer>
+    
+    <script>
+        // Create animated water drops
+        function createWaterDrops() {
+            const container = document.getElementById('waterDrops');
+            const dropsCount = 30;
+            
+            for (let i = 0; i < dropsCount; i++) {
+                const drop = document.createElement('div');
+                drop.classList.add('water-drop');
+                
+                // Random position
+                const left = Math.random() * 100;
+                drop.style.left = `${left}%`;
+                
+                // Random delay and duration
+                const delay = Math.random() * 5;
+                const duration = 2 + Math.random() * 3;
+                drop.style.animationDelay = `${delay}s`;
+                drop.style.animationDuration = `${duration}s`;
+                
+                // Random size
+                const size = 2 + Math.random() * 3;
+                drop.style.width = `${size}px`;
+                drop.style.height = `${size * 5}px`;
+                
+                container.appendChild(drop);
+            }
+        }
+        
+        // Create animated clouds
+        function createClouds() {
+            const container = document.getElementById('clouds');
+            const cloudCount = 5;
+            
+            for (let i = 0; i < cloudCount; i++) {
+                const cloud = document.createElement('div');
+                cloud.classList.add('cloud');
+                
+                // Random position
+                const top = Math.random() * 20;
+                cloud.style.top = `${top}%`;
+                
+                // Random size
+                const width = 100 + Math.random() * 200;
+                const height = 50 + Math.random() * 80;
+                cloud.style.width = `${width}px`;
+                cloud.style.height = `${height}px`;
+                
+                // Random animation
+                const duration = 40 + Math.random() * 40;
+                cloud.style.animationDuration = `${duration}s`;
+                
+                container.appendChild(cloud);
+            }
+        }
+        
+        // Create cloudburst animation
+        function createCloudburst(containerId, dropCount = 100) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            for (let i = 0; i < dropCount; i++) {
+                const drop = document.createElement('div');
+                drop.classList.add('cloudburst-drop');
+                
+                // Random position
+                const left = Math.random() * 100;
+                drop.style.left = `${left}%`;
+                
+                // Random delay and duration
+                const delay = Math.random() * 2;
+                const duration = 0.5 + Math.random() * 0.5;
+                drop.style.animationDelay = `${delay}s`;
+                drop.style.animationDuration = `${duration}s`;
+                
+                // Random size
+                const size = 1 + Math.random() * 2;
+                drop.style.width = `${size}px`;
+                drop.style.height = `${15 + Math.random() * 10}px`;
+                
+                container.appendChild(drop);
+            }
+        }
+        
+        // Initialize Pakistan map
+        function initPakistanMap() {
+            const map = L.map('pakistanMap').setView([35.5, 73.5], 7);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+            
+            // Northern areas coordinates
+            const northernAreas = [
+                {name: "Kalam Valley", coords: [35.48, 72.58], risk: "high"},
+                {name: "Hunza Valley", coords: [36.32, 74.67], risk: "medium"},
+                {name: "Naran Valley", coords: [34.91, 73.65], risk: "high"},
+                {name: "Neelum Valley", coords: [34.59, 73.91], risk: "critical"},
+                {name: "Chitral District", coords: [35.85, 71.79], risk: "high"},
+                {name: "Skardu", coords: [35.30, 75.62], risk: "medium"},
+                {name: "Swat", coords: [35.22, 72.42], risk: "critical"}
+            ];
+            
+            // Add markers for each area
+            northernAreas.forEach(area => {
+                let color;
+                if (area.risk === "critical") color = "#f44336";
+                else if (area.risk === "high") color = "#ff9800";
+                else color = "#4caf50";
+                
+                const marker = L.circleMarker(area.coords, {
+                    radius: 12,
+                    fillColor: color,
+                    color: "#000",
+                    weight: 1,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                }).addTo(map);
+                
+                marker.bindPopup(`<b>${area.name}</b><br>Risk: ${area.risk.toUpperCase()}`);
+                
+                // Add pulsing effect
+                marker.setStyle({fillOpacity: 0.8});
+                setInterval(() => {
+                    const currentOpacity = marker.options.fillOpacity;
+                    marker.setStyle({
+                        fillOpacity: currentOpacity === 0.8 ? 0.4 : 0.8
+                    });
+                }, 1000);
+            });
+            
+            return map;
+        }
+        
+        // Initialize dashboard map
+        function initDashboardMap() {
+            const map = L.map('dashboardMap').setView([35.2, 72.5], 9);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+            
+            // Kalam Valley area
+            const kalamValley = L.polygon([
+                [35.5, 72.4],
+                [35.3, 72.6],
+                [35.4, 72.8],
+                [35.6, 72.7]
+            ], {
+                color: '#f44336',
+                fillOpacity: 0.3
+            }).addTo(map);
+            
+            kalamValley.bindPopup("<b>Kalam Valley</b><br>Flood Risk: CRITICAL");
+            
+            // Animate the polygon
+            setInterval(() => {
+                const currentOpacity = kalamValley.options.fillOpacity;
+                kalamValley.setStyle({
+                    fillOpacity: currentOpacity === 0.3 ? 0.6 : 0.3
+                });
+            }, 1000);
+            
+            return map;
+        }
+        
+        // Initialize history chart
+        function initHistoryChart() {
+            const ctx = document.getElementById('historyChart').getContext('2d');
+            return new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+                    datasets: [{
+                        label: 'Rainfall (mm)',
+                        data: [45, 62, 55, 80, 105, 142, 180, 165, 130, 85, 60, 50],
+                        borderColor: '#29b6f6',
+                        backgroundColor: 'rgba(41, 182, 246, 0.1)',
+                        borderWidth: 3,
+                        tension: 0.3,
+                        fill: true
+                    }, {
+                        label: 'Flood Risk (%)',
+                        data: [15, 20, 18, 25, 40, 65, 85, 75, 60, 35, 22, 18],
+                        borderColor: '#f44336',
+                        backgroundColor: 'rgba(244, 67, 54, 0.1)',
+                        borderWidth: 3,
+                        tension: 0.3,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: true,
+                            text: 'Monthly Rainfall & Flood Risk (2023)'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    },
+                    animation: {
+                        duration: 2000,
+                        easing: 'easeOutQuart'
+                    }
+                }
+            });
+        }
+        
+        // Page navigation
+        function setupNavigation() {
+            const navButtons = document.querySelectorAll('.nav-btn');
+            const pages = document.querySelectorAll('.page');
+            
+            navButtons.forEach(button => {
+                button.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const targetPage = this.getAttribute('data-page');
+                    
+                    // Update active button
+                    navButtons.forEach(btn => btn.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // Show target page
+                    pages.forEach(page => {
+                        page.classList.remove('active');
+                        if (page.id === targetPage) {
+                            setTimeout(() => {
+                                page.classList.add('active');
+                            }, 50);
+                        }
+                    });
+                });
+            });
+        }
+        
+        // Cloudburst explosion animation
+        function triggerCloudburstExplosion() {
+            const explosionOverlay = document.getElementById('cloudburstExplosion');
+            const gatheringCloud = document.getElementById('gatheringCloud');
+            const explosion = document.getElementById('explosion');
+            const warningText = document.getElementById('warningText');
+            
+            // Show the overlay
+            explosionOverlay.style.opacity = 1;
+            explosionOverlay.style.pointerEvents = 'auto';
+            
+            // Stage 1: Cloud gathering
+            gatheringCloud.animate([
+                { width: '0px', height: '0px', opacity: 0 },
+                { width: '200px', height: '200px', opacity: 0.8 }
+            ], {
+                duration: 3000,
+                fill: 'forwards'
+            });
+            
+            // Stage 2: Explosion
+            setTimeout(() => {
+                gatheringCloud.animate([
+                    { opacity: 0.8 },
+                    { opacity: 0 }
+                ], {
+                    duration: 500,
+                    fill: 'forwards'
+                });
+                
+                explosion.animate([
+                    { width: '0px', height: '0px', opacity: 1, backgroundColor: '#29b6f6' },
+                    { width: '500px', height: '500px', opacity: 0.7, backgroundColor: '#1a6ea0' }
+                ], {
+                    duration: 800,
+                    fill: 'forwards'
+                });
+                
+                // Create water droplets
+                for (let i = 0; i < 100; i++) {
+                    const drop = document.createElement('div');
+                    drop.classList.add('water-drop-explosion');
+                    drop.style.left = `${Math.random() * 100}%`;
+                    drop.style.top = `${Math.random() * 100}%`;
+                    explosionOverlay.appendChild(drop);
+                    
+                    // Animate each droplet
+                    const angle = Math.random() * Math.PI * 2;
+                    const distance = 100 + Math.random() * 200;
+                    const duration = 800 + Math.random() * 800;
+                    
+                    drop.animate([
+                        { transform: 'translate(0, 0)', opacity: 1 },
+                        { transform: `translate(${Math.cos(angle) * distance}px, ${Math.sin(angle) * distance}px)`, opacity: 0 }
+                    ], {
+                        duration: duration,
+                        fill: 'forwards'
+                    });
+                }
+                
+                // Show warning text
+                warningText.animate([
+                    { opacity: 0, transform: 'scale(0.5)' },
+                    { opacity: 1, transform: 'scale(1.2)' },
+                    { opacity: 1, transform: 'scale(1)' }
+                ], {
+                    duration: 1500,
+                    fill: 'forwards'
+                });
+                
+            }, 3000);
+            
+            // Stage 3: Hide everything
+            setTimeout(() => {
+                explosionOverlay.animate([
+                    { opacity: 1 },
+                    { opacity: 0 }
+                ], {
+                    duration: 2000,
+                    fill: 'forwards'
+                }).onfinish = () => {
+                    explosionOverlay.style.pointerEvents = 'none';
+                    explosionOverlay.innerHTML = '<div class="explosion-container"><div class="gathering-cloud" id="gatheringCloud"></div><div class="explosion" id="explosion"></div><div class="warning-text" id="warningText">CLOUDBURST WARNING!</div></div>';
+                };
+            }, 6000);
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            createWaterDrops();
+            createClouds();
+            initPakistanMap();
+            initDashboardMap();
+            initHistoryChart();
+            setupNavigation();
+            
+            // Create cloudburst animations
+            createCloudburst('cloudburst1');
+            createCloudburst('cloudburst2');
+            createCloudburst('cloudburst3');
+            
+            // Trigger cloudburst explosion after 10 seconds
+            setTimeout(triggerCloudburstExplosion, 10000);
+            
+            // Simulate live data updates
+            setInterval(() => {
+                // Simulate changing values
+                const elements = document.querySelectorAll('.stat-value');
+                elements.forEach(el => {
+                    if (el.textContent.includes('mm')) {
+                        const currentVal = parseFloat(el.textContent);
+                        const newVal = (currentVal + (Math.random() * 2 - 1)).toFixed(1);
+                        el.textContent = `${newVal} mm`;
+                    } else if (el.textContent.includes('m')) {
+                        const currentVal = parseFloat(el.textContent);
+                        const newVal = (currentVal + (Math.random() * 0.1 - 0.05)).toFixed(1);
+                        el.textContent = `${newVal} m`;
+                    } else if (el.textContent.includes('%')) {
+                        const currentVal = parseFloat(el.textContent);
+                        const newVal = (currentVal + (Math.random() * 5 - 2.5)).toFixed(0);
+                        el.textContent = `${newVal}%`;
+                    }
+                });
+                
+                // Animate sensor cards
+                const sensorValues = document.querySelectorAll('.sensor-value');
+                sensorValues.forEach(el => {
+                    if (el.textContent.includes('°C')) {
+                        const currentVal = parseFloat(el.textContent);
+                        const newVal = (currentVal + (Math.random() * 0.5 - 0.25)).toFixed(1);
+                        el.textContent = `${newVal}°C`;
+                    } else if (el.textContent.includes('%')) {
+                        const currentVal = parseFloat(el.textContent);
+                        const newVal = (currentVal + (Math.random() * 2 - 1)).toFixed(0);
+                        el.textContent = `${newVal}%`;
+                    } else if (el.textContent.includes('km/h')) {
+                        const currentVal = parseFloat(el.textContent);
+                        const newVal = (currentVal + (Math.random() * 1 - 0.5)).toFixed(1);
+                        el.textContent = `${newVal} km/h`;
+                    } else if (el.textContent.includes('mm')) {
+                        const currentVal = parseFloat(el.textContent);
+                        const newVal = (currentVal + (Math.random() * 0.5 - 0.25)).toFixed(0);
+                        el.textContent = `${newVal}mm`;
+                    }
+                });
+            }, 5000);
+        });
+    </script>
+</body>
+</html>
